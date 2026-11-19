@@ -1,0 +1,6 @@
+{
+  "name": "Tsenakely",
+  "description": "Fitantanana tsenakely: tahiry entana, varotra isan'andro, ary karnety trosa.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
