@@ -12,7 +12,9 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-      - uses: android-actions/setup-android@v3
+      - run: |
+          SDK_MGR=$(command -v sdkmanager || find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools" -name sdkmanager | head -n 1)
+          yes | "$SDK_MGR" --licenses > /dev/null 2>&1 || true
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.3.1'
