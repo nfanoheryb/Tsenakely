@@ -29,6 +29,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAddCheck
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -98,10 +99,14 @@ fun PosScreen(
     onCheckout: (paymentMethod: String, customerId: Long?, newCustomerName: String?, newCustomerPhone: String) -> Unit,
     onGoToAddProduct: () -> Unit,
     onLoadSampleCatalog: () -> Unit,
+    onRestockProduct: (productId: Long, addedQty: Double) -> Unit,
+    onNotify: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showCartSheet by remember { mutableStateOf(false) }
     var showQuickSaleDialog by remember { mutableStateOf(false) }
+    var showRestockSheet by remember { mutableStateOf(false) }
+    var restockTarget by remember { mutableStateOf<ProductEntity?>(null) }
 
     val filteredProducts = remember(
         uiState.products,
@@ -175,7 +180,74 @@ fun PosScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    if (uiState.lowStockCount > 0) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        val hasOut = uiState.outOfStockCount > 0
+                        Surface(
+                            onClick = { showRestockSheet = true },
+                            shape = RoundedCornerShape(14.dp),
+                            color = if (hasOut) {
+                                MaterialTheme.colorScheme.errorContainer
+                            } else {
+                                MaterialTheme.colorScheme.tertiaryContainer
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("pos_out_of_stock_list_button")
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Rounded.PlaylistAddCheck,
+                                        contentDescription = stringResource(R.string.desc_out_of_stock_list),
+                                        tint = if (hasOut) {
+                                            MaterialTheme.colorScheme.onErrorContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onTertiaryContainer
+                                        },
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = if (hasOut) {
+                                            "Lisitry ny lany: ${uiState.outOfStockCount} lany, ${uiState.lowStockCount - uiState.outOfStockCount} kely sisa"
+                                        } else {
+                                            "Lisitry ny kely tahiry (${uiState.lowStockCount})"
+                                        },
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = if (hasOut) {
+                                            MaterialTheme.colorScheme.onErrorContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onTertiaryContainer
+                                        },
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Sokafy",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = if (hasOut) {
+                                        MaterialTheme.colorScheme.onErrorContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.onTertiaryContainer
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
                     TsenakelySearchField(
                         value = uiState.posSearchQuery,
                         onValueChange = onSearchChange,
@@ -247,7 +319,8 @@ fun PosScreen(
                                     product = product,
                                     inCartQty = inCartQty,
                                     onAdd = { onAddProduct(product) },
-                                    onRemove = { onDecrementProduct(product.id) }
+                                    onRemove = { onDecrementProduct(product.id) },
+                                    onOutOfStockTap = { restockTarget = product }
                                 )
                             }
                         }
@@ -378,6 +451,26 @@ fun PosScreen(
             }
         )
     }
+
+    if (showRestockSheet) {
+        OutOfStockListSheet(
+            products = uiState.products,
+            onDismiss = { showRestockSheet = false },
+            onRestockProduct = onRestockProduct,
+            onNotify = onNotify
+        )
+    }
+
+    restockTarget?.let { target ->
+        QuickRestockDialog(
+            product = target,
+            onDismiss = { restockTarget = null },
+            onConfirm = { added ->
+                onRestockProduct(target.id, added)
+                restockTarget = null
+            }
+        )
+    }
 }
 
 @Composable
@@ -385,7 +478,8 @@ private fun PosProductCard(
     product: ProductEntity,
     inCartQty: Double,
     onAdd: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    onOutOfStockTap: () -> Unit
 ) {
     val isOut = product.stockQty <= 0.0
     val isLow = !isOut && product.stockQty <= product.minStockAlert
@@ -398,17 +492,15 @@ private fun PosProductCard(
     }
 
     Card(
-        onClick = { if (!isOut) onAdd() },
-        enabled = !isOut,
+        onClick = { if (isOut) onOutOfStockTap() else onAdd() },
         shape = RoundedCornerShape(18.dp),
         border = border,
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
-            } else {
-                MaterialTheme.colorScheme.surfaceContainerLow
-            },
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f)
+            containerColor = when {
+                isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                isOut -> MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.65f)
+                else -> MaterialTheme.colorScheme.surfaceContainerLow
+            }
         ),
         modifier = Modifier
             .fillMaxWidth()

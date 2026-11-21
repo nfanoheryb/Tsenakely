@@ -184,7 +184,9 @@ fun TsenakelyApp(
                                 viewModel.selectTab(ShopTab.INVENTORY)
                                 addProductSignal += 1
                             },
-                            onLoadSampleCatalog = viewModel::loadSampleCatalog
+                            onLoadSampleCatalog = viewModel::loadSampleCatalog,
+                            onRestockProduct = viewModel::restockProduct,
+                            onNotify = viewModel::notifyMessage
                         )
 
                         ShopTab.INVENTORY -> InventoryScreen(
@@ -196,7 +198,8 @@ fun TsenakelyApp(
                             onSaveProduct = viewModel::saveProduct,
                             onRestockProduct = viewModel::restockProduct,
                             onDeleteProduct = viewModel::deleteProduct,
-                            onLoadSampleCatalog = viewModel::loadSampleCatalog
+                            onLoadSampleCatalog = viewModel::loadSampleCatalog,
+                            onNotify = viewModel::notifyMessage
                         )
 
                         ShopTab.CREDIT -> CreditScreen(
@@ -210,12 +213,23 @@ fun TsenakelyApp(
                             onDeleteCustomer = viewModel::deleteCustomer
                         )
 
-                        ShopTab.REPORTS -> ReportsScreen(
-                            uiState = uiState,
-                            onVoidSale = viewModel::voidSale,
-                            onAddExpense = viewModel::addExpense,
-                            onDeleteExpense = viewModel::deleteExpense
-                        )
+                        ShopTab.REPORTS -> {
+                            val contentResolver = androidx.compose.ui.platform.LocalContext.current.contentResolver
+                            ReportsScreen(
+                                uiState = uiState,
+                                onPeriodModeChange = viewModel::setReportPeriodMode,
+                                onShiftPeriod = viewModel::shiftReportPeriod,
+                                onPickDateMillis = viewModel::setReportAnchorMillis,
+                                onJumpToToday = viewModel::jumpReportToToday,
+                                onExportBackupUri = { uri -> viewModel.exportBackupToUri(contentResolver, uri) },
+                                onInspectBackupUri = { uri -> viewModel.inspectBackupFromUri(contentResolver, uri) },
+                                onConfirmRestoreBackup = viewModel::confirmRestoreBackup,
+                                onDismissRestoreBackup = viewModel::dismissPendingRestore,
+                                onVoidSale = viewModel::voidSale,
+                                onAddExpense = viewModel::addExpense,
+                                onDeleteExpense = viewModel::deleteExpense
+                            )
+                        }
                     }
                 }
             }

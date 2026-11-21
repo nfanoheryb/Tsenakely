@@ -61,7 +61,7 @@ interface TsenakelyDao {
 
     // --- Sales ---
     @Transaction
-    @Query("SELECT * FROM sales ORDER BY createdAt DESC LIMIT 200")
+    @Query("SELECT * FROM sales ORDER BY createdAt DESC")
     fun observeSalesWithItems(): Flow<List<SaleWithItems>>
 
     @Insert
@@ -74,7 +74,7 @@ interface TsenakelyDao {
     suspend fun deleteSaleById(saleId: Long)
 
     // --- Expenses ---
-    @Query("SELECT * FROM expenses ORDER BY createdAt DESC LIMIT 200")
+    @Query("SELECT * FROM expenses ORDER BY createdAt DESC")
     fun observeExpenses(): Flow<List<ExpenseEntity>>
 
     @Insert
@@ -226,5 +226,78 @@ interface TsenakelyDao {
             }
         }
         deleteSaleById(sale.id)
+    }
+
+    // --- Backup & Restore Support ---
+    @Query("SELECT * FROM products ORDER BY id ASC")
+    suspend fun getAllProductsOnce(): List<ProductEntity>
+
+    @Query("SELECT * FROM customers ORDER BY id ASC")
+    suspend fun getAllCustomersOnce(): List<CustomerEntity>
+
+    @Query("SELECT * FROM credit_entries ORDER BY id ASC")
+    suspend fun getAllCreditEntriesOnce(): List<CreditEntryEntity>
+
+    @Query("SELECT * FROM sales ORDER BY id ASC")
+    suspend fun getAllSalesOnce(): List<SaleEntity>
+
+    @Query("SELECT * FROM sale_items ORDER BY id ASC")
+    suspend fun getAllSaleItemsOnce(): List<SaleItemEntity>
+
+    @Query("SELECT * FROM expenses ORDER BY id ASC")
+    suspend fun getAllExpensesOnce(): List<ExpenseEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCustomers(customers: List<CustomerEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCreditEntries(entries: List<CreditEntryEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSales(sales: List<SaleEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertExpenses(expenses: List<ExpenseEntity>)
+
+    @Query("DELETE FROM sale_items")
+    suspend fun clearSaleItems()
+
+    @Query("DELETE FROM sales")
+    suspend fun clearSales()
+
+    @Query("DELETE FROM credit_entries")
+    suspend fun clearCreditEntries()
+
+    @Query("DELETE FROM customers")
+    suspend fun clearCustomers()
+
+    @Query("DELETE FROM products")
+    suspend fun clearProducts()
+
+    @Query("DELETE FROM expenses")
+    suspend fun clearExpenses()
+
+    @Transaction
+    suspend fun restoreFullBackupTransaction(
+        products: List<ProductEntity>,
+        customers: List<CustomerEntity>,
+        creditEntries: List<CreditEntryEntity>,
+        sales: List<SaleEntity>,
+        saleItems: List<SaleItemEntity>,
+        expenses: List<ExpenseEntity>
+    ) {
+        clearSaleItems()
+        clearSales()
+        clearCreditEntries()
+        clearCustomers()
+        clearProducts()
+        clearExpenses()
+
+        if (products.isNotEmpty()) insertProducts(products)
+        if (customers.isNotEmpty()) insertCustomers(customers)
+        if (creditEntries.isNotEmpty()) insertCreditEntries(creditEntries)
+        if (sales.isNotEmpty()) insertSales(sales)
+        if (saleItems.isNotEmpty()) insertSaleItems(saleItems)
+        if (expenses.isNotEmpty()) insertExpenses(expenses)
     }
 }

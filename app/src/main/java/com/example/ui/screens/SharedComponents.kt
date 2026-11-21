@@ -180,25 +180,38 @@ fun KpiMetricCard(
     value: String,
     modifier: Modifier = Modifier,
     accentColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary,
-    containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surfaceContainerLow
+    containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surfaceContainerLow,
+    trailingHint: String? = null,
+    onClick: (() -> Unit)? = null
 ) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        color = containerColor,
-        tonalElevation = 1.dp
-    ) {
+    val content: @Composable () -> Unit = {
         Column(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (trailingHint != null) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = trailingHint,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = accentColor,
+                        maxLines = 1
+                    )
+                }
+            }
             Text(
                 text = value,
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -207,6 +220,25 @@ fun KpiMetricCard(
                 overflow = TextOverflow.Ellipsis
             )
         }
+    }
+
+    if (onClick != null) {
+        Surface(
+            onClick = onClick,
+            modifier = modifier,
+            shape = RoundedCornerShape(16.dp),
+            color = containerColor,
+            tonalElevation = 1.dp,
+            content = content
+        )
+    } else {
+        Surface(
+            modifier = modifier,
+            shape = RoundedCornerShape(16.dp),
+            color = containerColor,
+            tonalElevation = 1.dp,
+            content = content
+        )
     }
 }
 

@@ -20,14 +20,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAddCheck
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddBox
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -84,10 +85,12 @@ fun InventoryScreen(
     onRestockProduct: (productId: Long, addedQty: Double) -> Unit,
     onDeleteProduct: (productId: Long) -> Unit,
     onLoadSampleCatalog: () -> Unit,
+    onNotify: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var editingProduct by remember { mutableStateOf<ProductEntity?>(null) }
     var showAddEditDialog by remember { mutableStateOf(false) }
+    var showRestockSheet by remember { mutableStateOf(false) }
     var restockTarget by remember { mutableStateOf<ProductEntity?>(null) }
     var deleteTarget by remember { mutableStateOf<ProductEntity?>(null) }
 
@@ -125,11 +128,47 @@ fun InventoryScreen(
                 .padding(horizontal = 16.dp)
         ) {
             Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = "Tahiry & Entana",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Tahiry & Entana",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.weight(1f)
+                )
+                FilledTonalButton(
+                    onClick = { showRestockSheet = true },
+                    modifier = Modifier
+                        .height(48.dp)
+                        .testTag("open_out_of_stock_list_button"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = if (uiState.lowStockCount > 0) {
+                        ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    } else {
+                        ButtonDefaults.filledTonalButtonColors()
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.PlaylistAddCheck,
+                        contentDescription = stringResource(R.string.desc_out_of_stock_list),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (uiState.lowStockCount > 0) {
+                            "Lany (${uiState.lowStockCount})"
+                        } else {
+                            "Lisitry ny lany"
+                        }
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(10.dp))
 
             // KPI Strip
@@ -146,8 +185,12 @@ fun InventoryScreen(
                 KpiMetricCard(
                     label = "Kely / Lany",
                     value = "${uiState.lowStockCount}",
-                    modifier = Modifier.weight(1f),
-                    accentColor = if (uiState.lowStockCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("inventory_low_stock_kpi"),
+                    accentColor = if (uiState.lowStockCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary,
+                    trailingHint = if (uiState.lowStockCount > 0) "Sokafy" else null,
+                    onClick = { showRestockSheet = true }
                 )
                 KpiMetricCard(
                     label = "Sandan'ny tahiry",
@@ -168,10 +211,18 @@ fun InventoryScreen(
             Spacer(modifier = Modifier.height(8.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(InventoryFilter.entries) { filter ->
+                    val labelText = when (filter) {
+                        InventoryFilter.OUT -> if (uiState.outOfStockCount > 0) "Lany (${uiState.outOfStockCount})" else filter.label
+                        InventoryFilter.LOW -> {
+                            val onlyLow = (uiState.lowStockCount - uiState.outOfStockCount).coerceAtLeast(0)
+                            if (onlyLow > 0) "Kely sisa ($onlyLow)" else filter.label
+                        }
+                        InventoryFilter.ALL -> filter.label
+                    }
                     FilterChip(
                         selected = uiState.inventoryFilter == filter,
                         onClick = { onFilterChange(filter) },
-                        label = { Text(filter.label) }
+                        label = { Text(labelText) }
                     )
                 }
                 val categories = listOf(ProductCategories.ALL) + ProductCategories.LIST
@@ -295,6 +346,15 @@ fun InventoryScreen(
                 onRestockProduct(target.id, added)
                 restockTarget = null
             }
+        )
+    }
+
+    if (showRestockSheet) {
+        OutOfStockListSheet(
+            products = uiState.products,
+            onDismiss = { showRestockSheet = false },
+            onRestockProduct = onRestockProduct,
+            onNotify = onNotify
         )
     }
 
@@ -616,59 +676,6 @@ private fun AddEditProductDialog(
                 modifier = Modifier.testTag("save_product_confirm")
             ) {
                 Text("Tehirizo")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Aoka ihany")
-            }
-        }
-    )
-}
-
-@Composable
-private fun QuickRestockDialog(
-    product: ProductEntity,
-    onDismiss: () -> Unit,
-    onConfirm: (Double) -> Unit
-) {
-    var addedText by remember { mutableStateOf("10") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Hanampy tahiry: ${product.name}") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    text = "Tahiry ankehitriny: ${Formatters.formatQty(product.stockQty, product.unit)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(5, 10, 20, 50).forEach { preset ->
-                        AssistChip(
-                            onClick = { addedText = preset.toString() },
-                            label = { Text("+$preset") }
-                        )
-                    }
-                }
-                OutlinedTextField(
-                    value = addedText,
-                    onValueChange = { raw -> addedText = raw.filter { it.isDigit() || it == '.' } },
-                    label = { Text("Isan'ny entana nampiana (${product.unit})") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            val qty = addedText.toDoubleOrNull() ?: 0.0
-            Button(
-                onClick = { onConfirm(qty) },
-                enabled = qty > 0.0
-            ) {
-                Text("Ampiana")
             }
         },
         dismissButton = {

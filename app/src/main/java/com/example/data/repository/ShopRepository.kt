@@ -1,5 +1,7 @@
 package com.example.data.repository
 
+import com.example.data.backup.BackupJsonCodec
+import com.example.data.backup.ShopBackupData
 import com.example.data.local.CreditEntryEntity
 import com.example.data.local.CustomerEntity
 import com.example.data.local.ExpenseEntity
@@ -183,5 +185,28 @@ class ShopRepository(private val dao: TsenakelyDao) {
             )
         )
         dao.insertProducts(samples)
+    }
+
+    suspend fun exportBackupJson(): String {
+        val snapshot = ShopBackupData(
+            products = dao.getAllProductsOnce(),
+            customers = dao.getAllCustomersOnce(),
+            creditEntries = dao.getAllCreditEntriesOnce(),
+            sales = dao.getAllSalesOnce(),
+            saleItems = dao.getAllSaleItemsOnce(),
+            expenses = dao.getAllExpensesOnce()
+        )
+        return BackupJsonCodec.encode(snapshot)
+    }
+
+    suspend fun restoreBackup(backup: ShopBackupData) {
+        dao.restoreFullBackupTransaction(
+            products = backup.products,
+            customers = backup.customers,
+            creditEntries = backup.creditEntries,
+            sales = backup.sales,
+            saleItems = backup.saleItems,
+            expenses = backup.expenses
+        )
     }
 }

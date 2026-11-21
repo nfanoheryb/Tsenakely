@@ -17,4 +17,10 @@
     <string name="desc_decrease_qty">Ahenao ny isa</string>
     <string name="desc_cart_icon">Harona fividianana</string>
     <string name="desc_more_options">Safidy fanampiny</string>
+    <string name="desc_backup_restore">Hitahiry sy hamerina angona</string>
+    <string name="desc_prev_period">Fotoana teo aloha</string>
+    <string name="desc_next_period">Fotoana manaraka</string>
+    <string name="desc_pick_date">Hisafidy daty</string>
+    <string name="desc_out_of_stock_list">Lisitry ny entana lany</string>
+    <string name="desc_copy_list">Handika ny lisitra</string>
 </resources>
